@@ -8,7 +8,7 @@
 
   step 4
   
-## 3. modification locally
+## 3. do modification locally
   
   step 5-6
 
