@@ -15,3 +15,4 @@
 ## 4. commit the changes and push them online.
   
   step 7-8
+A line I wrote on my local computer
