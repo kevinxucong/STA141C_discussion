@@ -27,3 +27,4 @@ You’ve confirmed that you can push to / pull from GitHub from the command line
 ## 4. commit the changes and push them online.
   chapter 12.4 and 12.5
   step 7-8
+A line I wrote on my local computer
