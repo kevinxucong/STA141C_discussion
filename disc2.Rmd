@@ -89,12 +89,12 @@ ll %>% map_lgl(~ mean(.$x) < mean(.$y))
 ```{r}
 # if mean(x) >= mean(y), y += 0.5
 # use 'map_if'
-ll %>% map_if(~ mean(.$x) >= mean(.$y), function(z) tibble(x = z$y, y = z$y + 0.5))
+ll %>% map_if(~ mean(.$x) >= mean(.$y), function(z) tibble(x = z$x, y = z$y + 0.5))
 ```
 
 ```{r}
 # 'modify' family always returns the same type as the input object.
-ll %>% modify_if(~ mean(.$x) >= mean(.$y), function(z) tibble(x = z$y, y = z$y + 0.5))
+ll %>% modify_if(~ mean(.$x) >= mean(.$y), function(z) tibble(x = z$x, y = z$y + 0.5))
 ```
 
 ```{r}
@@ -112,3 +112,4 @@ compute_corr <- function(i) {
 corrs <- 1:10 %>% map_dbl(compute_corr)
 corrs
 ```
+
