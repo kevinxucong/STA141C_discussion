@@ -11,6 +11,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo=FALSE}
 library(tidyverse)
+```
+
+```{r}
 # Working Directory
 getwd()
 ```
