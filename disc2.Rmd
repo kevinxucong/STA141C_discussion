@@ -1,0 +1,111 @@
+---
+title: "Discussion 2"
+author: "Cong Xu"
+date: "1/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(tidyverse)
+# Working Directory
+getwd()
+```
+
+```{r}
+# create a folder "files" in the current working directory
+dir.create("disc2_files", showWarnings = FALSE)
+```
+
+```{r, echo=FALSE}
+# create 10 .csv files in this folder
+set.seed(147)
+1:10 %>% map(function(i) {
+  dt <- tibble(x = rnorm(10), y = rnorm(10))
+  write_csv(dt, file.path("disc2_files", paste("file_", i, ".csv", sep = '')))
+})
+```
+
+```{r}
+# read these 10 .csv files
+
+# Wildcard Expansion on File Paths
+# get all the files in folder 'disc2_files'
+Sys.glob("disc2_files/*") 
+```
+
+```{r}
+# get all the files that match the pattern "disc2_files/*.csv", which means .csv files in folder "disc2_files"
+Sys.glob("disc2_files/*.csv") 
+```
+
+```{r}
+Sys.glob("disc2_files/*.pdf")
+```
+
+```{r}
+filenames <- Sys.glob("disc2_files/*")
+filenames
+```
+
+```{r}
+# list of length 10, each element is a tibble
+ll <- filenames %>% map(read_csv, col_types = "dd")
+ll[[1]]
+```
+
+```{r}
+# calculate the mean of x for each dataset
+ll %>% map(function(.) mean(.$x))
+```
+
+```{r}
+# want the result to be a double vector, so we use 'map_dbl' instead
+# function
+ll %>% map_dbl(function(.) mean(.$x))
+```
+
+```{r}
+# expression
+ll %>% map_dbl(~ mean(.$x))
+```
+
+```{r}
+# whether mean(x) < mean(y)
+# logical vector, so use 'map_lgl'
+ll %>% map_lgl(function(.) mean(.$x) < mean(.$y))
+```
+
+```{r}
+ll %>% map_lgl(~ mean(.$x) < mean(.$y))
+```
+
+```{r}
+# if mean(x) >= mean(y), y += 0.5
+# use 'map_if'
+ll %>% map_if(~ mean(.$x) >= mean(.$y), function(z) tibble(x = z$y, y = z$y + 0.5))
+```
+
+```{r}
+# 'modify' family always returns the same type as the input object.
+ll %>% modify_if(~ mean(.$x) >= mean(.$y), function(z) tibble(x = z$y, y = z$y + 0.5))
+```
+
+```{r}
+# Calculate the correlation between x and y
+ll %>% map_dbl(~ cor(.$x, .$y))
+```
+
+```{r}
+# Suppose you want to save memory
+compute_corr <- function(i) {
+  f <- read_csv(paste("disc2_files/file_", i, ".csv", sep = ''), col_types = cols())
+  return(cor(f$x, f$y))
+}
+
+corrs <- 1:10 %>% map_dbl(compute_corr)
+corrs
+```
