@@ -77,6 +77,30 @@ ll %>% map_dbl(~ mean(.$x))
 ```
 
 ```{r}
+res_t_test <- ll %>% map(~ t.test(.$x, .$y))
+```
+
+```{r}
+pvalues <- res_t_test %>% map_dbl(~ .$p.value)
+```
+
+```{r}
+pvalues %>% reduce(`+`) %>% `/`(length(pvalues))
+```
+
+```{r}
+pvalues %>% {reduce(., `+`) / length(.)}
+```
+
+```{r}
+pvalues %>% mean
+```
+
+```{r}
+ll %>% map_dbl(~ t.test(.$x, .$y)$p.value) %>% hist(main='Histogram of p-values')
+```
+
+```{r}
 # whether mean(x) < mean(y)
 # logical vector, so use 'map_lgl'
 ll %>% map_lgl(function(.) mean(.$x) < mean(.$y))
@@ -112,4 +136,57 @@ compute_corr <- function(i) {
 corrs <- 1:10 %>% map_dbl(compute_corr)
 corrs
 ```
+
+```{r}
+compute_betas <- function(i) {
+  f <- read_csv(paste("disc2_files/file_", i, ".csv", sep = ''), col_types = cols())
+  return(coef(lm(y ~ x, data = f)))
+}
+
+1:10 %>% map(compute_betas) %>%  reduce(`+`) %>% `/`(10)
+```
+
+```{r}
+library(nycflights13)
+head(flights)
+```
+
+```{r}
+moment <- function(k) {
+  force(k)
+  function(x) {
+    mean(x^k)
+  }
+}
+```
+
+
+```{r}
+x <- rnorm(10)
+m1 <- moment(1)
+m1(x) # it should equal mean(x)
+m2 <- moment(2)
+m2(x) # it should equal mean(x^2)
+```
+
+
+```{r}
+mpg_numeric <- mpg %>%
+  keep(~ is.numeric(.))
+head(mpg_numeric)
+```
+
+```{r}
+map_dbl(mpg_numeric, moment(2))
+```
+
+```{r}
+map(1:5 %>% map(moment), ~ map_dbl(mpg_numeric, .))
+```
+
+```{r}
+1:5 %>% map(moment) %>% map(~ map_dbl(mpg_numeric, .))
+```
+
+
 
