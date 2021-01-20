@@ -1,0 +1,217 @@
+---
+title: "Discussion 3"
+author: "Cong Xu"
+date: "1/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(tidyverse)
+```
+
+```{r}
+# create a folder "files" in the current working directory
+dir.create("disc2_files", showWarnings = FALSE)
+
+# create 10 .csv files in this folder
+set.seed(147)
+1:10 %>% walk(function(i) {
+  dt <- tibble(x = rnorm(10), y = rnorm(10))
+  write_csv(dt, file.path("disc2_files", paste("file_", i, ".csv", sep = '')))
+})
+```
+
+
+## map-reduce
+```{r}
+compute_betas <- function(i) {
+  f <- read_csv(paste("disc2_files/file_", i, ".csv", sep = ''), col_types = cols())
+  return(coef(lm(y ~ x, data = f)))
+}
+
+1:10 %>% map(compute_betas) %>% reduce(`+`) %>% `/`(10)
+```
+
+
+## lazy evaluation
+```{r}
+moment <- function(k) {
+  # force(k)
+  function(x) {
+    mean(x^k)
+  }
+}
+
+h <- 2
+square <- moment(h)
+
+h <- 3
+cube <- moment(h)
+
+square(2)
+```
+
+
+```{r}
+moment <- function(k) {
+  force(k) # to avoid lazy evaluation
+  function(x) {
+    mean(x^k)
+  }
+}
+
+h <- 2
+square <- moment(h)
+
+h <- 3
+cube <- moment(h)
+
+square(2)
+```
+
+## many 'map's
+```{r}
+filenames <- Sys.glob("disc2_files/*")
+
+# list of length 10, each element is a tibble
+ll <- filenames %>% map(read_csv, col_types = "dd")
+ll[[1]]
+```
+
+```{r}
+map_dbl(ll[[1]], moment(2))
+# ll[[1]] %>% map_dbl(moment(2))
+```
+
+```{r}
+map_dfr(1:5, ~map_dbl(ll[[1]], moment(.)))
+# 1:5 %>% map_dfr(~map_dbl(ll[[1]], moment(.)))
+```
+
+
+```{r}
+map(1:10, function(i) map_dfr(1:5, ~map_dbl(ll[[i]], moment(.))))
+```
+
+## debug
+```{r}
+fab_norm <- function(p) {
+  x <- c(1, 1, 2, 3, 5, 8)
+  (sum(abs(x)^p))^(1/p)
+}
+
+fab_norm(c(1, 2))  # gives wrong result
+```
+
+```{r}
+fab_norm <- function(p) {
+  x <- c(1, 1, 2, 3, 5, 8)
+  t1 <- abs(x)^p
+  t2 <- sum(t1)
+  t3 <- t2^(1/p)
+  t3
+}
+
+debug(fab_norm)
+fab_norm(c(1, 2))  # gives wrong result
+```
+
+
+```{r}
+f <- function(x, y = x) {
+  if (x < 0) {
+    x = -x
+  }
+  z = x + y
+  z
+}
+
+# f(3)
+debug(f)
+f(-3)  # it is not 0
+```
+
+```{r}
+check_out <- function(cart) {
+  x <- cart$apple
+  y <- cart$banana
+  if (is.null(x) || is.null(y)) {
+    stop("item should have apple and banana")
+  }
+  x + y
+}
+
+
+# check_out(list(
+#   apple = 1,
+#   banana = 2
+# ))
+#
+# check_out(list(
+#   apple = 1,
+#   orange = 2
+# ))
+#
+debug(check_out)
+check_out(list(
+  apple_pie = 1,
+  banana = 2
+))
+
+
+```
+
+```{r}
+temp <- list(
+  apple_pie = 1,
+  banana = 2
+)
+temp$apple
+```
+
+## profiling
+```{r}
+library(profvis)
+library(bench)
+```
+
+```{r}
+generate_and_fit <- function(n) {
+  x <- runif(n)
+  y <- runif(n)
+  fit <- lm(y ~ x)
+  coef(fit)
+}
+
+Rprof() # enable profiling
+generate_and_fit(1e7)
+Rprof(NULL) # disable profiling
+result <- summaryRprof()
+```
+
+```{r}
+result$by.self
+```
+
+```{r}
+n <- 1e4
+draw <- sample.int(n, 10)
+f <- function(x) x %in% draw
+
+n <- 1e3
+bench::mark(
+  `for loop` = {
+    x <- integer(n)
+    for (i in 1:n) {
+      x[i] <- f(i)
+    }
+    x
+  },
+  modify = modify(1:n, f),
+  map = map_int(1:n, f)
+)
+```
