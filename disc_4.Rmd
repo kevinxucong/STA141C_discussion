@@ -1,0 +1,261 @@
+---
+title: "Discussion 4"
+author: "Cong Xu"
+date: "1/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(Rcpp)
+```
+
+# Rcpp
+
+1. In R, avoid for/while loops. Use vectorization or 'apply'. While in Rcpp, for/while loops are efficient.
+2. When defining functions in Rcpp, the code should be within `{Rcpp}`
+2. In Rcpp, we must declare the types of input(s) and output(s).
+3. Do not forget `;`s.
+4. Import the namespace `Rcpp` for things such as `NumericVector`.
+5. We need to specify the type of each variable.
+
+
+## (a) whether there exists an positive element in vector `x`.
+
+```{r}
+x <- rnorm(5)
+x
+any(x > 0)
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+bool anygtC(NumericVector x){
+  int n = x.size();
+  for (int i = 0; i < n; i++){
+    if (x[i] > 0){
+      return true;
+    }
+  }
+  return false;
+}
+```
+
+```{r}
+x <- runif(1e4, -1, 1)
+bench::mark(
+  any(x > 0),
+  anygtC(x)
+)
+```
+
+
+## (b) mean of vector `x`.
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double meanC(NumericVector x){
+  int n = x.size();
+  double m = 0;
+  for (int i=0; i<n; i++){
+    m += x[i];
+  }
+  return m / n;
+}
+```
+
+```{r}
+x <- rnorm(1e3)
+mean(x)
+meanC(x)
+```
+
+```{r}
+bench::mark(
+  mean(x),
+  meanC(x)
+)
+```
+
+
+## (c) extention, when vector `x` contains NA's
+
+```{r}
+x <- rnorm(5)
+x[1] <- NA
+x
+mean(x)
+mean(x, na.rm = TRUE)
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double meanC_na(NumericVector x, bool na_rm=true){
+  int n = x.size();
+  double m = 0;
+  double c = 0;
+  for (int i=0; i<n; i++){
+    if (R_IsNA(x[i])){
+//   if (NumericVector::is_na(x[i])) { // another method
+      if (na_rm){
+        continue;
+      }
+      else {
+        return NA_REAL; 
+      }
+    }
+    else {
+      c += 1;
+      m += x[i];
+    }
+  }
+  return m / c;
+}
+```
+
+
+```{r}
+x <- rnorm(1e3)
+mean(x, na.rm = FALSE)
+meanC_na(x, na_rm=FALSE)
+```
+
+```{r}
+x[sample(1e3, 10)] <- NA
+mean(x,na.rm=TRUE)
+meanC_na(x, na_rm=TRUE)
+```
+
+```{r}
+bench::mark(
+  mean(x,na.rm=TRUE), 
+  meanC_na(x, na_rm=TRUE),
+  relative = TRUE
+)
+```
+
+
+## (d) square roots for all elements in a vector
+
+```{r}
+x <- runif(5,0,1)
+sqrt(x)
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericVector sqrtC(NumericVector x){
+  int n = x.size();
+  int i = 0;
+  NumericVector out(n);
+  while (i < n){
+    if (x[i] >= 0){
+      out[i] = sqrt(x[i]);
+    }
+    else {
+      out[i] = NA_REAL;
+    }
+    i++;
+  }
+  return out;
+}
+```
+
+```{r}
+x <- runif(10, -5, 5)
+sqrt(x)
+sqrtC(x)
+```
+
+```{r}
+x <- runif(1e5, 0, 1)
+bench::mark(
+  sqrt(x),
+  sqrtC(x),
+  relative = TRUE
+)
+```
+
+## (e) modifies (not in place) some values of a dataframe. For example, Celsius to Fahrenheit.
+
+```{r}
+df <- tibble(
+    weekday = c('Mon', 'Tue', 'Wed'),
+    temperature = c(20, 25, 22))
+df
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+DataFrame modifyDataFrame(DataFrame df) {
+  // access the columns
+  // it is very important to clone `a` and `b`!!
+  // since `clone()` does not know what `df["a"]` is, we need to specify the target type
+  CharacterVector a = clone<CharacterVector>(df["weekday"]);
+  NumericVector b = clone<NumericVector>(df["temperature"]);
+  // make some changes
+  int n = b.size();
+  for (int i=0; i<n; i++){
+    b[i] = 1.8*b[i] + 36;
+  }
+  // return a new data frame
+  return DataFrame::create(_["weekday"]= a, _["temperature"]= b);
+}
+```
+
+```{r}
+df_f <- modifyDataFrame(df)
+df_f
+```
+
+```{r}
+df
+```
+
+
+## (f) modifies (in place) some values of a dataframe.
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+void modifyDataFrame2(DataFrame df) {
+  // casting the columns to their corresponding types
+  CharacterVector a = as<CharacterVector>(df["weekday"]);
+  NumericVector b = as<NumericVector>(df["temperature"]);
+  // make some changes
+  int n = b.size();
+  for (int i=0; i<n; i++){
+    b[i] = 1.8*b[i] + 36;
+  }
+  // we don't have to return because we are modifying in place.
+}
+```
+
+```{r}
+df <- tibble(
+    weekday = c('Mon', 'Tue', 'Wed'),
+    temperature = c(20, 25, 22))
+modifyDataFrame2(df)
+df
+```
