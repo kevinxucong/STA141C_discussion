@@ -18,10 +18,10 @@ library(Rcpp)
 
 1. In R, avoid for/while loops. Use vectorization or 'apply'. While in Rcpp, for/while loops are efficient.
 2. When defining functions in Rcpp, the code should be within `{Rcpp}`
-2. In Rcpp, we must declare the types of input(s) and output(s).
-3. Do not forget `;`s.
-4. Import the namespace `Rcpp` for things such as `NumericVector`.
-5. We need to specify the type of each variable.
+3. In Rcpp, we must declare the types of input(s) and output(s).
+4. Do not forget `;`s.
+5. Import the namespace `Rcpp` for things such as `NumericVector`.
+6. We need to specify the type of each variable.
 
 
 ## (a) whether there exists an positive element in vector `x`.
@@ -29,6 +29,7 @@ library(Rcpp)
 ```{r}
 x <- rnorm(5)
 x
+x>0
 any(x > 0)
 ```
 
@@ -69,6 +70,7 @@ double meanC(NumericVector x){
   double m = 0;
   for (int i=0; i<n; i++){
     m += x[i];
+//     m = m + x[i]
   }
   return m / n;
 }
@@ -106,7 +108,7 @@ using namespace Rcpp;
 double meanC_na(NumericVector x, bool na_rm=true){
   int n = x.size();
   double m = 0;
-  double c = 0;
+  int c = 0;
   for (int i=0; i<n; i++){
     if (R_IsNA(x[i])){
 //   if (NumericVector::is_na(x[i])) { // another method
@@ -114,7 +116,7 @@ double meanC_na(NumericVector x, bool na_rm=true){
         continue;
       }
       else {
-        return NA_REAL; 
+        return NA_REAL;
       }
     }
     else {
@@ -122,7 +124,13 @@ double meanC_na(NumericVector x, bool na_rm=true){
       m += x[i];
     }
   }
-  return m / c;
+  
+  if (c == 0){
+    return NA_REAL;
+  }
+  else {
+    return m / c;
+  }
 }
 ```
 
@@ -191,6 +199,7 @@ bench::mark(
   relative = TRUE
 )
 ```
+
 
 ## (e) modifies (not in place) some values of a dataframe. For example, Celsius to Fahrenheit.
 

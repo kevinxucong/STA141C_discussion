@@ -382,12 +382,12 @@ $(document).ready(function () {
 
 
 <pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
+<pre><code>## ── Attaching packages ──────────────────────────────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
 <pre><code>## ✓ ggplot2 3.3.3     ✓ purrr   0.3.4
 ## ✓ tibble  3.0.4     ✓ dplyr   1.0.2
 ## ✓ tidyr   1.1.2     ✓ stringr 1.4.0
 ## ✓ readr   1.3.1     ✓ forcats 0.4.0</code></pre>
-<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+<pre><code>## ── Conflicts ─────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## x dplyr::filter() masks stats::filter()
 ## x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(Rcpp)</code></pre>
@@ -405,9 +405,11 @@ $(document).ready(function () {
 <h2>(a) whether there exists an positive element in vector <code>x</code>.</h2>
 <pre class="r"><code>x &lt;- rnorm(5)
 x</code></pre>
-<pre><code>## [1] -0.46803553 -0.01011254 -2.10347045 -0.33988534 -0.48620607</code></pre>
+<pre><code>## [1] -1.08414041  1.50133867  0.04328051 -1.08163281 -1.89433255</code></pre>
+<pre class="r"><code>x&gt;0</code></pre>
+<pre><code>## [1] FALSE  TRUE  TRUE FALSE FALSE</code></pre>
 <pre class="r"><code>any(x &gt; 0)</code></pre>
-<pre><code>## [1] FALSE</code></pre>
+<pre><code>## [1] TRUE</code></pre>
 <pre class="cpp"><code>#include &lt;Rcpp.h&gt;
 using namespace Rcpp;
 
@@ -429,8 +431,8 @@ bench::mark(
 <pre><code>## # A tibble: 2 x 6
 ##   expression      min   median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 any(x &gt; 0)  13.88µs  30.28µs    31031.   39.11KB     21.7
-## 2 anygtC(x)    1.28µs   3.09µs   237992.    2.49KB      0</code></pre>
+## 1 any(x &gt; 0)  13.65µs   30.2µs    31397.   39.11KB     22.0
+## 2 anygtC(x)    1.04µs   2.36µs   291164.    2.49KB      0</code></pre>
 </div>
 <div id="b-mean-of-vector-x." class="section level2">
 <h2>(b) mean of vector <code>x</code>.</h2>
@@ -443,14 +445,15 @@ double meanC(NumericVector x){
   double m = 0;
   for (int i=0; i&lt;n; i++){
     m += x[i];
+//     m = m + x[i]
   }
   return m / n;
 }</code></pre>
 <pre class="r"><code>x &lt;- rnorm(1e3)
 mean(x)</code></pre>
-<pre><code>## [1] 0.03858781</code></pre>
+<pre><code>## [1] 0.01908634</code></pre>
 <pre class="r"><code>meanC(x)</code></pre>
-<pre><code>## [1] 0.03858781</code></pre>
+<pre><code>## [1] 0.01908634</code></pre>
 <pre class="r"><code>bench::mark(
   mean(x),
   meanC(x)
@@ -458,19 +461,19 @@ mean(x)</code></pre>
 <pre><code>## # A tibble: 2 x 6
 ##   expression      min   median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 mean(x)      3.61µs   4.43µs   197218.        0B        0
-## 2 meanC(x)     2.29µs   2.66µs   298163.    7.02KB        0</code></pre>
+## 1 mean(x)      3.56µs   4.16µs   193340.        0B        0
+## 2 meanC(x)     1.93µs   3.37µs   305245.    7.02KB        0</code></pre>
 </div>
 <div id="c-extention-when-vector-x-contains-nas" class="section level2">
 <h2>(c) extention, when vector <code>x</code> contains NA’s</h2>
 <pre class="r"><code>x &lt;- rnorm(5)
 x[1] &lt;- NA
 x</code></pre>
-<pre><code>## [1]         NA  1.1845908  0.9190278  1.3739357 -0.6134755</code></pre>
+<pre><code>## [1]          NA -1.03293054 -0.65959699 -0.39134711  0.09203611</code></pre>
 <pre class="r"><code>mean(x)</code></pre>
 <pre><code>## [1] NA</code></pre>
 <pre class="r"><code>mean(x, na.rm = TRUE)</code></pre>
-<pre><code>## [1] 0.7160197</code></pre>
+<pre><code>## [1] -0.4979596</code></pre>
 <pre class="cpp"><code>#include &lt;Rcpp.h&gt;
 using namespace Rcpp;
 
@@ -478,7 +481,7 @@ using namespace Rcpp;
 double meanC_na(NumericVector x, bool na_rm=true){
   int n = x.size();
   double m = 0;
-  double c = 0;
+  int c = 0;
   for (int i=0; i&lt;n; i++){
     if (R_IsNA(x[i])){
 //   if (NumericVector::is_na(x[i])) { // another method
@@ -486,7 +489,7 @@ double meanC_na(NumericVector x, bool na_rm=true){
         continue;
       }
       else {
-        return NA_REAL; 
+        return NA_REAL;
       }
     }
     else {
@@ -494,18 +497,24 @@ double meanC_na(NumericVector x, bool na_rm=true){
       m += x[i];
     }
   }
-  return m / c;
+  
+  if (c == 0){
+    return NA_REAL;
+  }
+  else {
+    return m / c;
+  }
 }</code></pre>
 <pre class="r"><code>x &lt;- rnorm(1e3)
 mean(x, na.rm = FALSE)</code></pre>
-<pre><code>## [1] -0.08630192</code></pre>
+<pre><code>## [1] -0.02409157</code></pre>
 <pre class="r"><code>meanC_na(x, na_rm=FALSE)</code></pre>
-<pre><code>## [1] -0.08630192</code></pre>
+<pre><code>## [1] -0.02409157</code></pre>
 <pre class="r"><code>x[sample(1e3, 10)] &lt;- NA
 mean(x,na.rm=TRUE)</code></pre>
-<pre><code>## [1] -0.08695302</code></pre>
+<pre><code>## [1] -0.01964454</code></pre>
 <pre class="r"><code>meanC_na(x, na_rm=TRUE)</code></pre>
-<pre><code>## [1] -0.08695302</code></pre>
+<pre><code>## [1] -0.01964454</code></pre>
 <pre class="r"><code>bench::mark(
   mean(x,na.rm=TRUE), 
   meanC_na(x, na_rm=TRUE),
@@ -514,14 +523,14 @@ mean(x,na.rm=TRUE)</code></pre>
 <pre><code>## # A tibble: 2 x 6
 ##   expression                  min median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt;                &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
-## 1 mean(x, na.rm = TRUE)      2.69   3.62      1         9.45     1.00
-## 2 meanC_na(x, na_rm = TRUE)  1      1         3.99      1        1</code></pre>
+## 1 mean(x, na.rm = TRUE)      3.07   3.58      1         9.45     1.02
+## 2 meanC_na(x, na_rm = TRUE)  1      1         3.91      1        1</code></pre>
 </div>
 <div id="d-square-roots-for-all-elements-in-a-vector" class="section level2">
 <h2>(d) square roots for all elements in a vector</h2>
 <pre class="r"><code>x &lt;- runif(5,0,1)
 sqrt(x)</code></pre>
-<pre><code>## [1] 0.7111042 0.6199940 0.2682153 0.8040298 0.9550908</code></pre>
+<pre><code>## [1] 0.7608069 0.4620287 0.8061836 0.7494825 0.7119368</code></pre>
 <pre class="cpp"><code>#include &lt;Rcpp.h&gt;
 using namespace Rcpp;
 
@@ -544,11 +553,11 @@ NumericVector sqrtC(NumericVector x){
 <pre class="r"><code>x &lt;- runif(10, -5, 5)
 sqrt(x)</code></pre>
 <pre><code>## Warning in sqrt(x): NaNs produced</code></pre>
-<pre><code>##  [1]      NaN 0.952182 1.246758 2.049631 1.062469 2.162819 1.640002
-##  [8]      NaN      NaN      NaN</code></pre>
+<pre><code>##  [1]       NaN       NaN 0.4076083       NaN 1.9032432       NaN       NaN
+##  [8] 1.2576899       NaN       NaN</code></pre>
 <pre class="r"><code>sqrtC(x)</code></pre>
-<pre><code>##  [1]       NA 0.952182 1.246758 2.049631 1.062469 2.162819 1.640002
-##  [8]       NA       NA       NA</code></pre>
+<pre><code>##  [1]        NA        NA 0.4076083        NA 1.9032432        NA        NA
+##  [8] 1.2576899        NA        NA</code></pre>
 <pre class="r"><code>x &lt;- runif(1e5, 0, 1)
 bench::mark(
   sqrt(x),
@@ -558,8 +567,8 @@ bench::mark(
 <pre><code>## # A tibble: 2 x 6
 ##   expression   min median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
-## 1 sqrt(x)     1      1         1.06      1        1.03
-## 2 sqrtC(x)    1.14   1.08      1         1.01     1</code></pre>
+## 1 sqrt(x)     1      1         1.20      1        1.10
+## 2 sqrtC(x)    1.29   1.17      1         1.01     1</code></pre>
 </div>
 <div id="e-modifies-not-in-place-some-values-of-a-dataframe.-for-example-celsius-to-fahrenheit." class="section level2">
 <h2>(e) modifies (not in place) some values of a dataframe. For example, Celsius to Fahrenheit.</h2>
