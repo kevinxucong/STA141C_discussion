@@ -399,7 +399,7 @@ $(document).ready(function () {
 <pre class="r"><code>x &lt;- rnorm(10, 0.5, 1)
 res &lt;- t.test(x)
 res$p.value</code></pre>
-<pre><code>## [1] 0.1395007</code></pre>
+<pre><code>## [1] 0.402339</code></pre>
 <pre class="cpp"><code>#include &lt;Rcpp.h&gt;
 using namespace Rcpp;
 
@@ -415,7 +415,7 @@ double pvalueC_sugar(NumericVector x){
   return 2*(1 - R::pt(abs(tstat), n-1, true, false));
 }</code></pre>
 <pre class="r"><code>pvalueC_sugar(x)</code></pre>
-<pre><code>## [1] 0.1395007</code></pre>
+<pre><code>## [1] 0.402339</code></pre>
 <pre class="cpp"><code>#include &lt;Rcpp.h&gt;
 using namespace Rcpp;
 
@@ -436,8 +436,16 @@ double pvalueC(NumericVector x){
   double tstat = mux / sigmax * sqrt(n);
   return 2*(1 - R::pt(abs(tstat), n-1, true, false));
 }</code></pre>
+<p><span class="math display">\[
+\begin{eqnarray*}
+  \sum_{i=1}^n (x_i - \bar{x})^2 &amp;=&amp; \sum_{i=1}^n (x_i^2 - 2 x_i \bar{x} + \bar{x}^2)\\
+  &amp;=&amp; \sum_{i=1}^n x_i^2 - 2 \bar{x} \sum_{i=1}^n x_i + n \bar{x}^2\\
+  &amp;=&amp; \sum_{i=1}^n x_i^2 - 2 n \bar{x}^2 + n \bar{x}^2\\
+  &amp;=&amp; \sum_{i=1}^n x_i^2 - n \bar{x}^2
+\end{eqnarray*}
+\]</span></p>
 <pre class="r"><code>pvalueC(x)</code></pre>
-<pre><code>## [1] 0.1395007</code></pre>
+<pre><code>## [1] 0.402339</code></pre>
 <pre class="r"><code>x &lt;- rnorm(1000, 0.01, 1)
 bench::mark(
   t.test(x)$p.value, 
@@ -447,9 +455,9 @@ bench::mark(
 <pre><code>## # A tibble: 3 x 6
 ##   expression             min   median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt;        &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 t.test(x)$p.value   45.8µs  60.41µs    15584.   23.68KB     6.25
-## 2 pvalueC_sugar(x)    4.26µs   4.57µs   192565.    9.12KB    19.3 
-## 3 pvalueC(x)          2.11µs   2.37µs   382037.    7.02KB     0</code></pre>
+## 1 t.test(x)$p.value  45.04µs     62µs    15314.   23.68KB     6.27
+## 2 pvalueC_sugar(x)    4.22µs   4.56µs   208591.    9.12KB    20.9 
+## 3 pvalueC(x)          2.18µs   2.44µs   353032.    7.02KB     0</code></pre>
 </div>
 </div>
 <div id="package" class="section level1">
