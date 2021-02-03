@@ -1,0 +1,130 @@
+---
+title: "Discussion 5"
+author: "Cong Xu"
+date: "2/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(Rcpp)
+```
+
+
+# Rcpp
+
+## (a) t-test
+
+See Chapter 22 in (https://teuder.github.io/rcpp4everyone_en/220_dpqr_functions.html) for different distributions.
+
+```{r}
+x <- rnorm(10, 0.5, 1)
+res <- t.test(x)
+res$p.value
+```
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double pvalueC_sugar(NumericVector x){
+  int n = x.size();
+  if (n < 2){
+    return NA_REAL;
+  }
+  double mux = mean(x);
+  double sigmax = sqrt(sum(pow(x - mux, 2)) / (n-1));
+  double tstat = mux / sigmax * sqrt(n);
+  return 2*(1 - R::pt(abs(tstat), n-1, true, false));
+}
+```
+
+```{r}
+pvalueC_sugar(x)
+```
+
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double pvalueC(NumericVector x){
+  int n = x.size();
+  if (n < 2){
+    return NA_REAL;
+  }
+  double sumx = 0;
+  double ssqx = 0;
+  for (int i=0; i<n; i++){
+    sumx += x[i];
+    ssqx += pow(x[i], 2.0);
+  }
+  double mux = sumx / n;
+  double sigmax = sqrt((ssqx - n*pow(mux, 2.0)) / (n-1));
+  double tstat = mux / sigmax * sqrt(n);
+  return 2*(1 - R::pt(abs(tstat), n-1, true, false));
+}
+```
+
+```{r}
+pvalueC(x)
+```
+
+
+```{r}
+x <- rnorm(1000, 0.01, 1)
+bench::mark(
+  t.test(x)$p.value, 
+  pvalueC_sugar(x),
+  pvalueC(x)
+)
+```
+
+
+# package
+
+Suppose we want to create a R package that contains the following 2 functions.
+
+```{r}
+pound_to_kilogram <- function(p) {p / 2.205}
+kilogram_to_pound <- function(kg) {kg * 2.205}
+```
+
+```{r}
+pound_to_kilogram(12)
+```
+
+```{r, eval=FALSE}
+library(devtools)
+library(tidyverse)
+library(fs)
+```
+
+```{r, eval=FALSE}
+# Where to create this package: It should not be nested inside another RStudio Project, R package, or Git repo.
+create_package("/Users/congxu/Study/STA141C/toy")
+```
+
+```{r, eval=FALSE}
+library(devtools)
+
+# create weight.R in R/
+use_r("weight")
+
+# Test functions after write them in R/weight.R
+load_all()
+pound_to_kilogram(12)
+
+# it is not in the global enviroment. 
+exists("pound_to_kilogram", where = globalenv(), inherits = FALSE)
+
+# check the whole package.
+check()
+```
+
