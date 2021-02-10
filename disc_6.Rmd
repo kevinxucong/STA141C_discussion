@@ -1,0 +1,128 @@
+---
+title: "Discussion 6"
+author: "Cong Xu"
+date: "2/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+```
+
+```{r}
+set.seed(17)
+list_of_tibbles <- 1:100 %>% map(~ tibble(x=rnorm(5000)))
+```
+
+## (a) variance of `x` in each tibble using a single core.
+
+```{r}
+vars <- map_dbl(list_of_tibbles, ~ var(.$x))
+vars
+```
+
+## (b) use `parLapply`
+
+```{r}
+library(parallel)
+```
+
+```{r}
+cl <- makeCluster(4)
+varsL <- parSapply(cl, list_of_tibbles, function(df) var(df$x))
+varsL
+stopCluster(cl)
+```
+
+## (c) use `parSapplyLB`
+
+```{r}
+cl <- makeCluster(4)
+varsLB <- parSapplyLB(cl, list_of_tibbles, function(df) var(df$x))
+varsLB
+stopCluster(cl)
+```
+
+## (d) compare
+
+```{r}
+cl <- makeCluster(4)
+bench::mark(
+  map_dbl(list_of_tibbles, ~ var(.$x)),
+  parSapply(cl, list_of_tibbles, function(df) var(df$x)),
+  parSapplyLB(cl, list_of_tibbles, function(df) var(df$x)),
+  check = FALSE,
+  relative = TRUE
+)
+stopCluster(cl)
+```
+
+## (e) Caution: we need to make sure that objects are avaiable in the cluster
+
+```{r}
+y <- 10 # global environment
+add <- function(x) {
+  x + y
+}
+add(3)
+```
+
+```{r, error = TRUE}
+cl <- makeCluster(4)
+parSapply(cl, 1:10, add)
+```
+
+```{r}
+clusterExport(cl, "y")
+parSapply(cl, 1:10, add)
+stopCluster(cl)
+```
+
+## (f) Caution: generate random samples
+
+```{r}
+# wrong
+# result will change
+cl <- makeCluster(4)
+set.seed(123)
+clusterEvalQ(cl, {
+  rnorm(5)
+})
+stopCluster(cl)
+```
+
+```{r}
+# wrong again
+cl <- makeCluster(4)
+clusterEvalQ(cl, {
+  set.seed(123)
+  rnorm(5)
+})
+stopCluster(cl)
+```
+
+```{r}
+# right
+cl <- makeCluster(4)
+clusterSetRNGStream(cl, 123)
+clusterEvalQ(cl, {
+  rnorm(5)
+})
+stopCluster(cl)
+```
+
+```{r}
+# another
+cl <- makeCluster(4)
+set.seed(123)
+seed_ls <- sample(10000, 5, replace=FALSE)
+parLapply(cl, seed_ls, function(seed){
+  set.seed(seed)
+  rnorm(5)
+})
+stopCluster(cl)
+```
