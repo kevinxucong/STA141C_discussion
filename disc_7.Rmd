@@ -1,0 +1,156 @@
+---
+title: "Discussion 7"
+author: "Cong Xu"
+date: "2/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+```
+
+```{r}
+set.seed(147)
+x <- rnorm(1e4)
+```
+
+Suppose we are interested in estimating the variance. The point estimation $\hat{\sigma}^2$ is
+
+```{r}
+var(x)
+```
+
+We also want to get the Confidence Interval of that parameter. That is to say, we need to derive the distribution of the estimator. Usually it is difficult to derive it analytically.
+
+## Classic 95% Bootstrap C.I. for variance
+
+1. Assume the estimator is Normally distributed.
+2. Get the s.e. of the estimator by Bootstrap samples.
+
+```{r}
+library(purrr)
+```
+
+```{r}
+alpha <- 0.05
+B <- 1000
+n <- length(x)
+se <- map_dbl(1:B, ~{
+      index <- sample(n, n, replace = TRUE)
+      temp <- x[index]
+      var(temp)
+  }) %>% sd()
+
+var(x) + qnorm(1-alpha/2) * c(-1, 1) * se
+```
+
+Use `furrr`.
+
+```{r}
+library(furrr)
+```
+
+```{r}
+suppressWarnings(plan(multiprocess, workers = 4))
+options(future.rng.onMisuse = "ignore")
+```
+
+```{r}
+se <- future_map_dbl(seq_len(B), ~{
+      index <- sample(n, n, replace = TRUE)
+      temp <- x[index]
+      var(temp)
+  }) %>% sd()
+
+# classical bootstrap
+var(x) + qnorm(1-alpha/2) * c(-1, 1) * se
+```
+
+## Bootstrap Percentile 95% C.I.
+
+1. No assumption on the distribution of the estimator
+2. Use empirical distribution of Bootstrap samples.
+
+```{r}
+map_dbl(1:B, ~{
+    index <- sample(n, n, replace = TRUE)
+    temp <- x[index]
+    var(temp)
+  }) %>% 
+  quantile(p = c(alpha/2, 1-alpha/2))
+```
+
+```{r}
+future_map_dbl(seq_len(B), ~{
+    index <- sample(n, n, replace = TRUE)
+    temp <- x[index]
+    var(temp)
+}) %>% quantile(p = c(alpha/2, 1-alpha/2))
+```
+
+## The bag of little bootstraps (BLB)
+
+1. Split the original dataset (n obs) into $s$ subsamples.
+2. For each subsample (size b), sample $n$ observations with replacement. Repeat for $r$ times.
+3. Based on these $r$ bootstrap samples, get C.I. for this subsample.
+4. Average over all subsamples.
+
+```{r}
+# split x into 50 subsamples (size 200)
+subsample_ls <- split(x, ceiling(seq_along(x) / 200))
+```
+
+```{r}
+# A naive (single core) implementation
+
+r <- 10 # r should be at least a few thousands, say 10000, we are using 10 for demo
+ci_list <- subsample_ls %>% map(function(y){
+  seq_len(r) %>%
+    map_dbl(~ {
+      b <- length(y)
+      index <- sample(b, n, replace = TRUE)
+      temp <- y[index]
+      var(temp)
+    }) %>%
+    quantile(p = c(alpha/2, 1-alpha/2))
+})
+reduce(ci_list, `+`) / length(ci_list)
+```
+
+For a subsample $y_1, y_2,...y_b$, we random draw $n$ samples from it with replacement. Suppose each of them repeats $w_i$ times. Then the sample mean is 
+
+$$
+  \bar{y}_w = \frac{\sum_{i} w_i y_i}{\sum_{i} w_i}
+$$
+Sample variance
+$$
+\begin{eqnarray*}
+  &&\frac{1}{(\sum_{i}w_i) - 1} \sum_{i} w_i(y_i - \bar{y}_w)^2\\
+  &=& \frac{1}{(\sum_{i}w_i) - 1} \sum_{i} w_i y_i^2 - 2 w_i y_i \bar{y}_w + w_i \bar{y}_w^2\\
+  &=& \frac{1}{(\sum_{i}w_i) - 1} [\sum_{i} w_i y_i^2 - 2 \sum_{i} w_i \bar{y}_w^2 + \sum_{i} w_i \bar{y}_w^2]\\
+  &=& \frac{1}{(\sum_{i}w_i) - 1} [\sum_{i} w_i y_i^2 - \sum_{i} w_i \bar{y}_w^2]
+\end{eqnarray*}
+$$
+
+
+```{r}
+# A more efficient implmentation with multinomial distribution
+
+ci_list <- subsample_ls %>% map(function(y){
+  seq_len(r) %>%
+    map_dbl(~ {
+      b <- length(y)
+      w <- c(rmultinom(1, n, rep(1,b))) # weights
+      sumy <- sum(w * y)
+      (sum(w * y^2) - sumy^2 / sum(w)) / (sum(w) - 1)
+    }) %>%
+    quantile(p = c(alpha/2, 1-alpha/2))
+})
+reduce(ci_list, `+`) / length(ci_list)
+```
+
+By replacing `map` with `future_map`, we get the parallel version using `furrr`.
