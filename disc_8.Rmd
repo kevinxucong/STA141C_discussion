@@ -1,0 +1,122 @@
+---
+title: "Discussion 8"
+author: "Cong Xu"
+date: "2/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tree)
+```
+
+```{r}
+summary(mtcars)
+```
+
+## Decision Tree
+```{r}
+tree_mtcars <- tree(mpg ~ ., data = mtcars)
+plot(tree_mtcars, type = "uniform")
+text(tree_mtcars, pretty = 1, all = TRUE, cex = 0.7)
+```
+
+```{r}
+set.seed(141)
+idx <- sample(dim(mtcars), 1)
+
+x0 <- mtcars[idx, 2:11]
+x0
+```
+```{r}
+predict(tree_mtcars, x0)
+```
+
+## Random Forest
+
+```{r}
+# RF
+num_trees <- 500
+m <- 3
+n <- nrow(mtcars)
+all_col_names <- names(mtcars)[2:11]  # skip "mpg"
+
+fitted_values <- map_dbl(seq_len(num_trees), function(i) {
+  # random sample columns
+  col_names <- c("mpg", sample(all_col_names, m))
+  # random sample rows with replacement
+  mtcars_boot <- mtcars[sample(n, n, replace = TRUE), col_names]
+  tree_mtcars_boot <- tree(mpg ~ ., mtcars_boot, control = tree.control(n, mindev = 0.001))
+  predict(tree_mtcars_boot, x0)
+})
+```
+
+```{r}
+# point estimation
+mean(fitted_values)
+```
+
+```{r}
+library(ranger)
+```
+
+```{r}
+rf <- ranger(mpg ~ ., data = mtcars, num.trees = num_trees, max.depth = 5)
+
+pred <- predict(rf, x0)
+pred$predictions
+```
+
+```{r}
+mtcars[idx,]
+```
+
+## Confidence Interval for $f(x_0)$ (Bootstrap)
+
+Notice the difference between a confidence interval and a prediction interval
+
+```{r}
+B <- 1000
+fitted_values_B <- map_dbl(seq_len(B), function(i) {
+  # bootstrap sample
+  mtcars_boot <- mtcars[sample(n, n, replace = TRUE), ]
+  rf_mtcars_boot <- ranger(mpg ~ ., data = mtcars_boot, num.trees = num_trees, max.depth = 5)
+  predict(rf_mtcars_boot, x0)$predictions
+})
+```
+
+```{r}
+hist(fitted_values_B)
+```
+
+```{r}
+quantile(fitted_values_B, c(0.025, 0.975))
+```
+
+## Confidence Interval (BLB)
+
+```{r}
+subsample_ls <- split(mtcars, ceiling(seq_len(dim(mtcars)[1]) / 8))
+```
+
+```{r}
+# A naive (single core) implementation
+
+r <- 10 # r should be at least a few thousands, say 10000, we are using 10 for demo
+ci_list <- subsample_ls %>% map(function(subdf){
+  seq_len(r) %>%
+    map_dbl(~ {
+      b <- dim(subdf)[1]
+      index <- sample(b, n, replace = TRUE)
+      temp <- subdf[index, ]
+      rf_temp <- ranger(mpg ~ ., data = temp, num.trees = num_trees, max.depth = 5)
+      predict(rf_temp, x0)$predictions
+    }) %>%
+    quantile(p = c(0.025, 0.975))
+})
+reduce(ci_list, `+`) / length(ci_list)
+```
