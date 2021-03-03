@@ -79,7 +79,7 @@ data(spam)
 ### Preparation
 1. train-test split
 2. transformation / standardization / scaling
-3. X: np.array(n_obs, None), y: np.array(n_obs, )
+3. X: np.array(n_obs, 57), y: np.array(n_obs, )
 
 ```{r}
 set.seed(141)
@@ -164,3 +164,7 @@ print('Test accuracy:', test_acc)
 2. model structure
 3. hyper-parameters (number of nodes in a layer, drop-out rate, activation function, optimizer, epochs)
 4. complete evaluation (in some cases accuracy is not a good metric)
+
+### More to read
+1. https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/
+2. https://keras.io/examples/
