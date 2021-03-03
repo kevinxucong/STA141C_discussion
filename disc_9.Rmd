@@ -1,0 +1,166 @@
+---
+title: "Discussion 9"
+author: "Cong Xu"
+date: "3/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Python
+
+```{r}
+library(reticulate)
+```
+
+Tell `reticulate` to use `miniconda`.
+```{r}
+use_miniconda(required = TRUE)
+```
+
+### range & index
+
+```{python}
+# range(0, 4)
+for i in range(4):
+  print(i)
+
+```
+
+```{python}
+for i in range(2,5):
+  print(i)
+
+```
+
+```{python}
+for i in range(5,1,-1):
+  print(i)
+
+```
+
+```{python}
+# list in python
+l = [2,4,6,8,10,12]
+l[0]
+```
+
+```{python}
+l[0:2]
+```
+
+```{python}
+l[::-1]
+```
+
+```{python}
+# length of a list
+len(l)
+```
+
+## Keras
+
+Reference: https://www.tensorflow.org/tutorials/keras/classification
+
+```{r}
+library(reticulate)
+library(tidyverse)
+library(keras)
+```
+
+```{r}
+library(rsample)
+library(kernlab)
+data(spam)
+```
+
+### Preparation
+1. train-test split
+2. transformation / standardization / scaling
+3. X: np.array(n_obs, None), y: np.array(n_obs, )
+
+```{r}
+set.seed(141)
+nspam <- 1813
+nham <- 2788
+test <- c(sample(1:nspam, floor(nspam * 0.1)), sample(nspam + 1:nham, floor(nham * 0.1)))
+spam_train <- spam[-test, ]
+spam_test <- spam[test, ]
+```
+
+```{r}
+head(spam)
+```
+
+```{r}
+X_train <- as.matrix(spam_train[, 1:57])
+y_train <- 1*(spam_train[, 58] == 'spam')
+X_test <- as.matrix(spam_test[, 1:57])
+y_test <- 1*(spam_test[, 58] == 'spam')
+```
+
+```{python}
+r.X_train.shape
+```
+
+```{python}
+len(r.y_train)
+```
+
+
+```{python}
+import numpy as np
+from tensorflow import keras
+
+X_train = r.X_train
+X_test = r.X_test
+y_train = keras.utils.to_categorical(r.y_train, 2)
+y_test = keras.utils.to_categorical(r.y_test, 2)
+```
+
+```{python}
+y_test.shape
+```
+
+### build the model
+1. input layer
+2. hidden layer(s)
+3. output layer (goal of the task, loss function)
+
+```{python}
+model = keras.Sequential([
+    keras.layers.Dense(64, activation='relu'),
+    keras.layers.Dropout(0.25),
+    keras.layers.Dense(2, activation="softmax")
+])
+
+```
+
+### compile the model
+
+```{python}
+model.compile(optimizer='adam', loss=keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
+
+```
+
+### train the model
+
+```{python}
+model.fit(X_train, y_train, epochs=10)
+
+```
+
+### Evaluation on testing set
+
+```{python}
+test_loss, test_acc = model.evaluate(X_test,  y_test, verbose=2)
+print('Test accuracy:', test_acc)
+```
+
+### Possible improvements
+1. transformation before training
+2. model structure
+3. hyper-parameters (number of nodes in a layer, drop-out rate, activation function, optimizer, epochs)
+4. complete evaluation (in some cases accuracy is not a good metric)
