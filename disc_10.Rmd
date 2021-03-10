@@ -14,8 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 1. Coefficient of determination $R^2$. In simple linear regression ($y_i= \beta_0 + \beta_1 x_i + \epsilon_i$)
 
 ```{r}
-x <- rnorm(1000)
-y <- x + rnorm(1000)
+x <- rnorm(2000)
+y <- x + rnorm(2000)
 summary(lm(y~x))$r.squared
 cor(x,y)^2
 ```
